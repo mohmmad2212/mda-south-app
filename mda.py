@@ -6,26 +6,21 @@ from datetime import datetime, timedelta
 # 1. הגדרות דף
 st.set_page_config(page_title='מערכת שיבוץ אשכול', layout='wide', page_icon='🚑')
 
-# 2. ניהול קבצים (v18 לפתרון ה-KeyError)
-W_FILE, S_FILE = "workers_v18.csv", "shifts_v18.csv"
+# 2. ניהול קבצים - גרסה v19 כוללת טלפון בשיבוץ
+W_FILE, S_FILE = "workers_v19.csv", "shifts_v19.csv"
 def load_db(file, cols): return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame(columns=cols)
 def save_db(df, file): df.to_csv(file, index=False, encoding='utf-8-sig')
 
 if 'workers_db' not in st.session_state: st.session_state.workers_db = load_db(W_FILE, ["שם", "תז", "סיסמה", "תפקיד", "טלפון"])
-if 'shifts_db' not in st.session_state: st.session_state.shifts_db = load_db(S_FILE, ["תז", "שם_ותפקיד", "תחנה", "תאריך", "משמרת", "צבע", "סטטוס"])
+if 'shifts_db' not in st.session_state: st.session_state.shifts_db = load_db(S_FILE, ["תז", "שם", "טלפון", "תחנה", "תאריך", "משמרת", "תפקיד", "צבע", "סטטוס"])
 
-# 3. הגדרת התפקידים והצבעים מהתמונה
+# 3. רשימת תפקידים וצבעים (לפי התמונה שלך)
 ROLES_CONFIG = {
-    "נוער חונך": "#9370DB",       # סגול
-    "נוער חניך": "#FA8072",       # סלמון
-    "נוער": "#FF0000",             # אדום
-    "חובש": "#808080",             # אפור
-    "חובש (משתלם)": "#D3D3D3",    # אפור בהיר
-    "משתלם נהיגה": "#FFD700",      # צהוב
-    "בת שירות": "#87CEEB"         # כחול בהיר
+    "נוער חונך": "#9370DB", "נוער חניך": "#FA8072", "נוער": "#FF0000",
+    "חובש": "#808080", "חובש (משתלם)": "#D3D3D3", "משתלם נהיגה": "#FFD700", "בת שירות": "#87CEEB"
 }
 
-# 4. הגדרת שעות נפרדות לכל תחנה (למניעת בלבול)
+# 4. שעות פעילות לכל תחנה
 STATION_HOURS = {
     "חורה": ["07:00-15:00", "15:00-19:00"],
     "מיתר": ["07:00-15:00", "15:00-23:00"],
@@ -38,7 +33,7 @@ def get_week_days():
     start_point = today - timedelta(days=(today.weekday() + 1) % 7)
     return [f"{days_names[(start_point + timedelta(days=i)).weekday()]} - {(start_point + timedelta(days=i)).strftime('%d/%m/%Y')}" for i in range(7)]
 
-# 5. עיצוב (שחור כשהוא מחובר)
+# 5. עיצוב CSS
 is_logged_in = 'auth' in st.session_state and st.session_state.auth is not None
 bg_color = "#f4f7f9" if is_logged_in else "#1a3a6d"
 label_color = "#000000" if is_logged_in else "#ffffff"
@@ -53,13 +48,13 @@ st.markdown(f"""
     }}
     .main-header h1 {{ color: #ffffff !important; font-size: 1.8rem; margin: 0; }}
     div[data-testid="stForm"] {{ background-color: #ffffff; padding: 25px; border-radius: 15px; border: 1px solid #ddd; }}
-    .stButton>button {{ background-color: #d32f2f !important; color: white !important; font-weight: bold; border-radius: 10px; }}
+    .stButton>button {{ width: 100%; font-weight: bold; border-radius: 10px; }}
     </style>
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header"><h1>🚑 מערכת שיבוץ אשכול חורה מיתר לקיה</h1></div>', unsafe_allow_html=True)
 
-# --- כניסה למערכת ---
+# --- דף כניסה ---
 if not is_logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -80,24 +75,40 @@ if not is_logged_in:
 # --- ממשק מנהל ---
 elif st.session_state.auth == "admin":
     st.sidebar.button("יציאה 🚪", on_click=lambda: st.session_state.update({"auth": None}))
-    t1, t2, t3 = st.tabs(["👥 ניהול עובדים", "📥 בקשות", "📊 דוחות"])
-    
+    t1, t2, t3 = st.tabs(["👥 ניהול עובדים", "📥 בקשות ממתינות", "📊 יומן משמרות (Excel)"])
+
     with t1:
-        with st.form("add_w"):
-            n, i, p = st.text_input("שם"), st.text_input("תז"), st.text_input("סיסמה")
+        with st.form("add"):
+            n, i, p, t = st.text_input("שם"), st.text_input("תז"), st.text_input("סיסמה"), st.text_input("טלפון")
             r = st.selectbox("תפקיד", list(ROLES_CONFIG.keys()))
-            if st.form_submit_button("שמור"):
-                nw = pd.DataFrame([[n, i, p, r, ""]], columns=st.session_state.workers_db.columns)
+            if st.form_submit_button("הוסף עובד"):
+                nw = pd.DataFrame([[n, i, p, r, t]], columns=st.session_state.workers_db.columns)
                 st.session_state.workers_db = pd.concat([st.session_state.workers_db, nw], ignore_index=True)
                 save_db(st.session_state.workers_db, W_FILE); st.rerun()
-        st.dataframe(st.session_state.workers_db)
+        st.write("### רשימת עובדים")
+        st.dataframe(st.session_state.workers_db[["שם", "תז", "תפקיד", "טלפון"]])
 
     with t2:
         pending = st.session_state.shifts_db[st.session_state.shifts_db['סטטוס'] == "ממתין"]
+        if pending.empty: st.info("אין בקשות ממתינות כרגע")
         for idx, row in pending.iterrows():
-            st.info(f"{row['שם_ותפקיד']} | {row['תחנה']} | {row['משמרת']}")
-            if st.button("✅ אשרי", key=f"a{idx}"):
-                st.session_state.shifts_db.at[idx, 'סטטוס'] = "מאושר ✅"; save_db(st.session_state.shifts_db, S_FILE); st.rerun()
+            with st.container():
+                st.write(f"👤 **{row['שם']}** ({row['תפקיד']}) | 📍 {row['תחנה']} | 📅 {row['תאריך']} | 🕒 {row['משמרת']}")
+                c1, c2 = st.columns(2)
+                if c1.button("✅ אשרי והעבר לאקסל", key=f"ok_{idx}"):
+                    st.session_state.shifts_db.at[idx, 'סטטוס'] = "מאושר ✅"
+                    save_db(st.session_state.shifts_db, S_FILE); st.success("המשמרת אושרה!"); st.rerun()
+                if c2.button("❌ דחה وردية", key=f"no_{idx}"):
+                    st.session_state.shifts_db.at[idx, 'סטطוס'] = "מבוטל ❌"
+                    save_db(st.session_state.shifts_db, S_FILE); st.rerun()
+
+    with t3:
+        approved = st.session_state.shifts_db[st.session_state.shifts_db['סטטוס'] == "מאושר ✅"]
+        st.write("### משמרות מאושרות (תצוגת אקסל)")
+        st.dataframe(approved[["תאריך", "שם", "תז", "טלפון", "תחנה", "משמרת", "תפקיד"]])
+        if not approved.empty:
+            csv = approved.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+            st.download_button("📥 הורד קובץ Excel (CSV)", csv, "final_shifts.csv", "text/csv")
 
 # --- ממשק עובד ---
 else:
@@ -105,34 +116,26 @@ else:
     u = st.session_state.user
     st.write(f"### שלום, {u['שם']}! 👋")
     
-    # اختيار المحطة أولاً لتغيير الساعات بناءً عليها
-    station = st.selectbox("בחר תחנה", list(STATION_HOURS.keys()))
-    
-    with st.form("shift_req"):
-        # الساعات ستتغير تلقائياً حسب المحطة المختارة أعلاه
-        shift_time = st.radio("בחר משמרת", STATION_HOURS[station])
-        day = st.selectbox("בחר תאריך", get_week_days())
-        
+    st_branch = st.selectbox("בחר תחנה", list(STATION_HOURS.keys()))
+    with st.form("req"):
+        s_time = st.radio("בחר משמרת", STATION_HOURS[st_branch])
+        s_date = st.selectbox("בחר תאריך", get_week_days())
         if st.form_submit_button("שלח בקשה 🚑"):
-            # التأكد من جلب الدور (תפקיד) لمنع الـ KeyError
-            role = u.get('תפקיד', "נוער") 
-            shift_color = ROLES_CONFIG.get(role, "#FFFFFF")
-            
-            new_req = pd.DataFrame([[u['תז'], f"{u['שם']} ({role})", station, day, shift_time, shift_color, "ממתין"]], 
-                                   columns=st.session_state.shifts_db.columns)
-            st.session_state.shifts_db = pd.concat([st.session_state.shifts_db, new_req], ignore_index=True)
+            # גיוס כל הנתונים של העובד לשיבוץ
+            new_s = pd.DataFrame([[u['תז'], u['שם'], u['טלפון'], st_branch, s_date, s_time, u['תפקיד'], ROLES_CONFIG.get(u['תפקיד'], "#FFF"), "ממתין"]], 
+                                columns=st.session_state.shifts_db.columns)
+            st.session_state.shifts_db = pd.concat([st.session_state.shifts_db, new_s], ignore_index=True)
             save_db(st.session_state.shifts_db, S_FILE)
             st.balloons()
             st.success("תודה על שליחת המשמרת! 🙏 נא להמתין בסבלנות עד לאישור המנהל.")
             st.rerun()
 
     st.divider()
-    st.subheader("📋 הבקשות שלי")
     my_s = st.session_state.shifts_db[st.session_state.shifts_db['תז'].astype(str) == str(u['תז'])]
+    st.subheader("📋 הבקשות שלי")
     for idx, row in my_s.iterrows():
-        c1, c2, c3 = st.columns([3, 1, 1])
-        c1.write(f"📍 {row['תחנה']} | 📅 {row['תאריך']} | 🕒 {row['משמרת']}")
-        c2.write(f"**{row['סטטוס']}**")
-        if row['סטטוס'] == "ממתין" and c3.button("🗑️ מחק", key=f"del_{idx}"):
+        col1, col2 = st.columns([4, 1])
+        col1.write(f"📍 {row['תחנה']} | 📅 {row['תאריך']} | {row['משמרת']} | **{row['סטטוס']}**")
+        if row['סטטוס'] == "ממתין" and col2.button("🗑️", key=f"del_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
