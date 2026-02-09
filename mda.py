@@ -132,7 +132,7 @@ else:
     with st.form("req"):
         s_time = st.radio("בחר משמרת", STATION_HOURS[st_branch])
         s_date = st.selectbox("בחר תאריך", get_week_days())
-        if st.form_submit_button("שלح בקשה 🚑"):
+        if st.form_submit_button("שלח בקשה 🚑"):
             role_color = ROLES_CONFIG.get(u['תפקיד'], "#FFFFFF")
             new_row = pd.DataFrame([[u['תז'], u['שם'], u['טלפון'], st_branch, s_date, s_time, u['תפקיד'], role_color, "ממתין"]], 
                                 columns=st.session_state.shifts_db.columns)
@@ -148,3 +148,4 @@ else:
         if row['סטטוס'] == "ממתין" and c2.button("🗑️", key=f"del_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
+
