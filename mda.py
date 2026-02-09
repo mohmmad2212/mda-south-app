@@ -111,7 +111,7 @@ else:
     with st.form("req"):
         sh, dt = st.radio("משמרת", STATION_HOURS[br]), st.selectbox("תאריך", get_week_days())
         if st.form_submit_button("שלח בקשה 🚑"):
-            new_s = pd.DataFrame([[u['תז'], f"{u['שם']} ({u['תפקיد']})", br, dt, sh, "לבن", "ממתין"]], columns=st.session_state.shifts_db.columns)
+            new_s = pd.DataFrame([[u['תז'], f"{u['שם']} ({u תפקיד']})", br, dt, sh, "לבן", "ממתין"]], columns=st.session_state.shifts_db.columns)
             st.session_state.shifts_db = pd.concat([st.session_state.shifts_db, new_s], ignore_index=True)
             save_db(st.session_state.shifts_db, S_FILE); st.balloons(); st.rerun()
 
@@ -138,3 +138,4 @@ else:
                         st.success("הבקשה נמחקה בהצלחה!")
                         st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True) # مسافة بسيطة بين الأسطر
+
