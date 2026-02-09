@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # 1. הגדרות דף
-st.set_page_config(page_title='מערכת מד"א דרום', layout='wide', page_icon='🚑')
+st.set_page_config(page_title='מערכת שיבוץ אשכול חורה מיתר לקיה', layout='wide', page_icon='🚑')
 
 # 2. ניהול קבצים
 W_FILE, S_FILE = "workers_v13.csv", "shifts_v13.csv"
@@ -130,3 +130,4 @@ else:
         if row['סטטוס'] == "ממתין" and col_d.button("🗑️", key=f"ds_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
+
