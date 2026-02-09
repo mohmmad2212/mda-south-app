@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title='מערכת שיבוץ אשכול', layout='wide', page_icon='🚑')
 
 # 2. ניהול קבצים
-W_FILE, S_FILE = "workers_v22.csv", "shifts_v22.csv"
+W_FILE, S_FILE = "workers_v23.csv", "shifts_v23.csv"
 def load_db(file, cols): return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame(columns=cols)
 def save_db(df, file): df.to_csv(file, index=False, encoding='utf-8-sig')
 
@@ -77,14 +77,28 @@ elif st.session_state.auth == "admin":
     t1, t2, t3 = st.tabs(["👥 ניהול עובדים", "📥 בקשות ממתינות", "📊 יומן משמרות ואיפוס"])
 
     with t1:
-        with st.form("add"):
-            n, i, p, t = st.text_input("שם"), st.text_input("תז"), st.text_input("סיסמה"), st.text_input("טלפון")
+        st.subheader("הוספת עובד חדש")
+        with st.form("add_worker_form"):
+            n, i, p, t = st.text_input("שם מלא"), st.text_input("תעודת זהות"), st.text_input("סיסמה"), st.text_input("טלפון")
             r = st.selectbox("תפקיד", list(ROLES_CONFIG.keys()))
-            if st.form_submit_button("הוסף עובד"):
+            if st.form_submit_button("שמור עובד ✅"):
                 nw = pd.DataFrame([[n, i, p, r, t]], columns=st.session_state.workers_db.columns)
                 st.session_state.workers_db = pd.concat([st.session_state.workers_db, nw], ignore_index=True)
-                save_db(st.session_state.workers_db, W_FILE); st.rerun()
-        st.dataframe(st.session_state.workers_db[["שם", "תז", "תפקיד", "טלפון"]])
+                save_db(st.session_state.workers_db, W_FILE); st.success(f"העובד {n} נוסף בהצלחה!"); st.rerun()
+        
+        st.divider()
+        st.subheader("רשימת עובדים קיימת (מחיקה)")
+        if st.session_state.workers_db.empty:
+            st.info("אין עובדים רשומים במערכת.")
+        else:
+            for idx, row in st.session_state.workers_db.iterrows():
+                cw1, cw2, cw3 = st.columns([3, 2, 1])
+                cw1.write(f"👤 {row['שם']} ({row['תפקיד']})")
+                cw2.write(f"🆔 {row['תז']}")
+                if cw3.button("🗑️ מחק", key=f"del_worker_{idx}"):
+                    st.session_state.workers_db = st.session_state.workers_db.drop(idx)
+                    save_db(st.session_state.workers_db, W_FILE)
+                    st.rerun()
 
     with t2:
         pending = st.session_state.shifts_db[st.session_state.shifts_db['סטטוס'] == "ממתין"]
@@ -99,15 +113,12 @@ elif st.session_state.auth == "admin":
     with t3:
         approved = st.session_state.shifts_db[st.session_state.shifts_db['סטטוס'] == "מאושר ✅"]
         st.dataframe(approved[["תאריך", "שם", "תז", "טלפון", "תחנה", "משמרת"]])
-        
         if not approved.empty:
             csv = approved.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-            st.download_button("📥 הורד לאקסל (Excel)", csv, "final_report.csv", "text/csv")
+            st.download_button("📥 הורד לאקסל (Excel)", csv, "report.csv", "text/csv")
         
         st.divider()
-        st.error("⚠️ אזור מסוכן")
-        if st.button("🚨 איפוס כל המשמרות"):
-            st.session_state.confirm_reset = True
+        if st.button("🚨 איפוס כל המשמרות"): st.session_state.confirm_reset = True
         
         if st.session_state.get('confirm_reset'):
             st.warning("האם אתה בטוח שברצונך למחוק את כל נתוני המשמרות?")
@@ -115,12 +126,9 @@ elif st.session_state.auth == "admin":
             if col_y.button("כן, מחק הכל"):
                 st.session_state.shifts_db = pd.DataFrame(columns=st.session_state.shifts_db.columns)
                 save_db(st.session_state.shifts_db, S_FILE)
-                st.session_state.confirm_reset = False
-                st.success("המערכת אופסה!")
-                st.rerun()
+                st.session_state.confirm_reset = False; st.rerun()
             if col_n.button("ביטול"):
-                st.session_state.confirm_reset = False
-                st.rerun()
+                st.session_state.confirm_reset = False; st.rerun()
 
 # --- ממשק עובד ---
 else:
@@ -148,5 +156,3 @@ else:
         if row['סטטוס'] == "ממתין" and c2.button("🗑️", key=f"del_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
-
-
