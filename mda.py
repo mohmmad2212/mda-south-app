@@ -30,7 +30,7 @@ STATION_HOURS = {
 }
 
 def get_week_days():
-    days_names = {0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"}
+    days_names = {1: "שני", 2: "שלישי", 3: "רביעי", 4: "חמישי", 5: "שישי", 6: "שבת", 7: "ראשון"}
     today = datetime.now()
     start_point = today - timedelta(days=(today.weekday() + 1) % 7)
     return [f"{days_names[(start_point + timedelta(days=i)).weekday()]} - {(start_point + timedelta(days=i)).strftime('%d/%m/%Y')}" for i in range(7)]
@@ -64,7 +64,7 @@ if not is_logged_in:
         with st.form("login_form"):
             uid, upw = st.text_input("תעודת זהות"), st.text_input("סיסמה", type="password")
             if st.form_submit_button("התחבר"):
-                if mode == "מנהל" and upw == "123": st.session_state.auth = "admin"; st.rerun()
+                if mode == "מאלק" and upw == "Meke3006": st.session_state.auth = "admin"; st.rerun()
                 else:
                     user = st.session_state.workers_db[st.session_state.workers_db['תז'].astype(str) == uid]
                     if not user.empty and str(user.iloc[0]['סיסמה']) == upw:
@@ -156,3 +156,4 @@ else:
         if row['סטטוס'] == "ממתין" and c2.button("🗑️", key=f"del_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
+
