@@ -64,7 +64,7 @@ if not is_logged_in:
         with st.form("login_form"):
             uid, upw = st.text_input("תעודת זהות"), st.text_input("סיסמה", type="password")
             if st.form_submit_button("התחבר"):
-                if mode == "מאלק" and upw == "Meke3006": st.session_state.auth = "admin"; st.rerun()
+                if mode == "מנהל" and upw == "Meke3006": st.session_state.auth = "admin"; st.rerun()
                 else:
                     user = st.session_state.workers_db[st.session_state.workers_db['תז'].astype(str) == uid]
                     if not user.empty and str(user.iloc[0]['סיסמה']) == upw:
@@ -156,4 +156,5 @@ else:
         if row['סטטוס'] == "ממתין" and c2.button("🗑️", key=f"del_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
+
 
