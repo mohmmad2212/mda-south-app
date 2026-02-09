@@ -7,20 +7,13 @@ import urllib.parse
 # 1. הגדרות דף
 st.set_page_config(page_title='מערכת מד"א דרום', layout='wide', page_icon='🚑')
 
-# 2. ניהול קבצים (v12)
-W_FILE, S_FILE = "workers_v12.csv", "shifts_v12.csv"
+# 2. ניהול קבצים
+W_FILE, S_FILE = "workers_v13.csv", "shifts_v13.csv"
+def load_db(file, cols): return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame(columns=cols)
+def save_db(df, file): df.to_csv(file, index=False, encoding='utf-8-sig')
 
-def load_db(file, cols): 
-    return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame(columns=cols)
-
-def save_db(df, file): 
-    df.to_csv(file, index=False, encoding='utf-8-sig')
-
-# تحميل البيانات - العمال والورדיות بشكل منفصل تماماً
-if 'workers_db' not in st.session_state: 
-    st.session_state.workers_db = load_db(W_FILE, ["שם", "תז", "סיסמה", "תפקיד", "טלפון"])
-if 'shifts_db' not in st.session_state: 
-    st.session_state.shifts_db = load_db(S_FILE, ["תז", "שם_ותפקיד", "תחנה", "תאריך", "משמרת", "צבע", "סטטוס"])
+if 'workers_db' not in st.session_state: st.session_state.workers_db = load_db(W_FILE, ["שם", "תז", "סיסמה", "תפקיד", "טלפון"])
+if 'shifts_db' not in st.session_state: st.session_state.shifts_db = load_db(S_FILE, ["תז", "שם_ותפקיד", "תחנה", "תאריך", "משמרת", "צבע", "סטטוס"])
 
 # 3. הגדרות שעות
 STATION_HOURS = {"חורה": ["07:00-15:00", "15:00-19:00"], "מיתר": ["07:00-15:00", "15:00-23:00"], "לקיה": ["08:00-16:00"]}
@@ -31,82 +24,89 @@ def get_week_days():
     start_point = today - timedelta(days=(today.weekday() + 1) % 7)
     return [f"{days_names[(start_point + timedelta(days=i)).weekday()]} - {(start_point + timedelta(days=i)).strftime('%d/%m/%Y')}" for i in range(7)]
 
-# 4. עיצוב
+# 4. עיצוב משופר (כיתוב לבן בדף הכניסה)
 is_logged_in = 'auth' in st.session_state and st.session_state.auth is not None
 bg_color = "#f4f7f9" if is_logged_in else "#1a3a6d"
+label_color = "#1a3a6d" if is_logged_in else "#ffffff" # לבן בחוץ, כחול בפנים
+
 st.markdown(f"""
     <style>
     .stApp {{ background-color: {bg_color}; }}
+    /* עיצוב כותרות וטקסטים שיהיו לבנים בדף הכניסה */
+    .stMarkdown p, label, .stRadio label, div[data-testid="stMarkdownContainer"] p {{
+        color: {label_color} !important;
+        font-weight: bold !important;
+        font-size: 1.1rem;
+    }}
     .main-header {{ background-color: #ffffff; padding: 15px; border-radius: 15px; border-bottom: 6px solid #d32f2f; text-align: center; margin-bottom: 25px; }}
     .main-header h1 {{ color: #1a3a6d !important; }}
-    .reset-box {{ background-color: #ffcccc; padding: 20px; border-radius: 10px; border: 2px solid #d32f2f; margin-bottom: 20px; }}
+    div[data-testid="stForm"] {{ background-color: #ffffff; padding: 25px; border-radius: 15px; border: 1px solid #ddd; }}
+    /* כפתור כניסה */
+    .stButton>button {{ background-color: #d32f2f !important; color: white !important; font-weight: bold; }}
     </style>
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header"><h1>🚑 מערכת שיבוץ - מד"א דרום</h1></div>', unsafe_allow_html=True)
 
-# --- כניסה ---
+# --- דף כניסה ---
 if not is_logged_in:
-    col1, col2, col3 = st.columns([1, 1.5, 1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        mode = st.radio("בחר סוג כניסה", ["עובד", "מנהל"], horizontal=True)
-        with st.form("login"):
-            uid, upw = st.text_input("תעודת זהות"), st.text_input("סיסמה", type="password")
-            if st.form_submit_button("התחבר"):
-                if mode == "מנהל" and upw == "123": st.session_state.auth = "admin"; st.rerun()
+        # כאן הטקסט יהיה לבן בגלל ה-CSS למעלה
+        mode = st.radio("בחר סוג כניסה:", ["עובד", "מנהל"], horizontal=True)
+        with st.form("login_form"):
+            uid = st.text_input("תעודת זהות")
+            upw = st.text_input("סיסמה", type="password")
+            if st.form_submit_button("התחבר למערכת"):
+                if mode == "מנהל" and upw == "123":
+                    st.session_state.auth = "admin"; st.rerun()
                 else:
                     user = st.session_state.workers_db[st.session_state.workers_db['תז'].astype(str) == uid]
                     if not user.empty and str(user.iloc[0]['סיסמה']) == upw:
                         st.session_state.auth = "worker"; st.session_state.user = user.iloc[0]; st.rerun()
-                    else: st.error("פרטים שגויים")
+                    else: st.error("פרטים שגויים - בדוק תז וסיסמה")
 
 # --- ממשק מנהל ---
 elif st.session_state.auth == "admin":
     st.sidebar.button("יציאה 🚪", on_click=lambda: st.session_state.update({"auth": None}))
-    t1, t2, t3 = st.tabs(["👥 ניהול עובדים", "📥 בקשות חדשות", "📊 ניהול משמרות ואיפוס"])
+    t1, t2, t3 = st.tabs(["👥 ניהול עובדים", "📥 בקשות", "📊 איפוס ודוחות"])
 
-    with t1: # ניהול עובדים - لا يتأثر بالتصفير
-        st.subheader("רשימת עובדים קיימת")
+    with t1:
+        st.subheader("הוספת/מחיקת עובדים")
+        # תצוגת עובדים
         if not st.session_state.workers_db.empty:
             for idx, row in st.session_state.workers_db.iterrows():
-                cols = st.columns([3, 2, 2, 1])
-                cols[0].write(f"👤 **{row.get('שם', '')}**")
-                cols[1].write(f"🆔 {row.get('תז', '')}")
-                cols[2].write(f"🚑 {row.get('תפקיד', '')}")
-                if cols[3].button("🗑️", key=f"del_w_{idx}"):
+                cols = st.columns([3, 2, 1])
+                cols[0].write(f"👤 {row['שם']} ({row['תפקיד']})")
+                cols[1].write(f"🆔 {row['תז']}")
+                if cols[2].button("🗑️", key=f"dw_{idx}"):
                     st.session_state.workers_db = st.session_state.workers_db.drop(idx)
                     save_db(st.session_state.workers_db, W_FILE); st.rerun()
         
-        with st.expander("➕ הוספת עובד חדש למערכת"):
-            with st.form("add_worker_form"):
+        with st.expander("➕ הוסף עובד חדש"):
+            with st.form("add_w"):
                 n, i, p, t = st.text_input("שם מלא"), st.text_input("תז"), st.text_input("סיסמה"), st.text_input("טלפון")
-                r = st.selectbox("תפקיד", ["נוער חונך", "נוער חניך", "נוער", "חובש", "חובש (משתלם)", "משתלם נהיגה", "בת שירות"])
-                if st.form_submit_button("שמור עובד"):
-                    new_w = pd.DataFrame([[n, i, p, r, t]], columns=st.session_state.workers_db.columns)
-                    st.session_state.workers_db = pd.concat([st.session_state.workers_db, new_w], ignore_index=True)
-                    save_db(st.session_state.workers_db, W_FILE); st.success("העובד נוסף בהצלחה!"); st.rerun()
+                r = st.selectbox("תפקיד", ["נוער", "חובש", "נהג", "בת שירות"])
+                if st.form_submit_button("שמור"):
+                    nw = pd.DataFrame([[n, i, p, r, t]], columns=st.session_state.workers_db.columns)
+                    st.session_state.workers_db = pd.concat([st.session_state.workers_db, nw], ignore_index=True)
+                    save_db(st.session_state.workers_db, W_FILE); st.rerun()
 
-    with t3: # تصفير الورדיات فقط
-        st.markdown('<div class="reset-box">', unsafe_allow_html=True)
-        st.subheader("⚠️ איפוס משמרות (העובדים יישארו)")
-        if st.button("🚨 מחק את כל המשמרות והתחל שבוע חדש 🚨"):
-            # نقوم بتفريغ جدول الورדיات فقط
+    with t3:
+        st.subheader("ניהול נתונים")
+        if st.button("🚨 איפוס כל המשמרות (שבוע חדש) 🚨"):
             st.session_state.shifts_db = pd.DataFrame(columns=["תז", "שם_ותפקיד", "תחנה", "תאריך", "משמרת", "צבע", "סטטוס"])
-            save_db(st.session_state.shifts_db, S_FILE)
-            st.success("המשמרות נמחקו. רשימת העובדים נשמרה בבטחה ✅")
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.dataframe(st.session_state.shifts_db, use_container_width=True)
+            save_db(st.session_state.shifts_db, S_FILE); st.success("המערכת אופסה!"); st.rerun()
+        st.dataframe(st.session_state.shifts_db)
 
-    with t2: # إدارة الطلبات
+    with t2:
         pending = st.session_state.shifts_db[st.session_state.shifts_db['סטטוס'] == "ממתין"]
-        if pending.empty: st.write("אין בקשות חדשות.")
         for idx, row in pending.iterrows():
-            st.info(f"{row['שם_ותפקיד']} | {row['תחנה']} | {row['תאריך']} | {row['משמרת']}")
+            st.info(f"{row['שם_ותפקיד']} | {row['תחנה']} | {row['תאריך']}")
             c1, c2 = st.columns(2)
-            if c1.button("אשר ✅", key=f"a{idx}"):
+            if c1.button("✅ אשרי", key=f"a{idx}"):
                 st.session_state.shifts_db.at[idx, 'סטטוס'] = "מאושר ✅"; save_db(st.session_state.shifts_db, S_FILE); st.rerun()
-            if c2.button("דחה ❌", key=f"r{idx}"):
+            if c2.button("❌ דחה", key=f"r{idx}"):
                 st.session_state.shifts_db.at[idx, 'סטטוס'] = "מבוטל ❌"; save_db(st.session_state.shifts_db, S_FILE); st.rerun()
 
 # --- ממשק עובד ---
@@ -123,11 +123,10 @@ else:
             save_db(st.session_state.shifts_db, S_FILE); st.balloons(); st.rerun()
 
     st.divider()
-    st.subheader("הבקשות שלי")
     my_shifts = st.session_state.shifts_db[st.session_state.shifts_db['תז'].astype(str) == str(u['תז'])]
     for idx, row in my_shifts.iterrows():
-        col_text, col_del = st.columns([4, 1])
-        col_text.write(f"📍 {row['תחנה']} | 📅 {row['תאריך']} | 🕒 {row['משמרת']} | 📝 {row['סטטוס']}")
-        if row['סטטוס'] == "ממתין" and col_del.button("🗑️ מחק", key=f"del_s_{idx}"):
+        col_t, col_d = st.columns([4, 1])
+        col_t.write(f"📍 {row['תחנה']} | 📅 {row['תאריך']} | 🕒 {row['משמרת']} | {row['סטטוס']}")
+        if row['סטטוס'] == "ממתין" and col_d.button("🗑️", key=f"ds_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
