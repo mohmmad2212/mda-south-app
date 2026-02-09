@@ -91,7 +91,7 @@ elif st.session_state.auth == "admin":
         for idx, row in pending.iterrows():
             st.info(f"👤 {row['שם']} | 📍 {row['תחנה']} | 📅 {row['תאריך']}")
             c1, c2 = st.columns(2)
-            if c1.button("✅ אשרי", key=f"ok_{idx}"):
+            if c1.button("✅ אשר", key=f"ok_{idx}"):
                 st.session_state.shifts_db.at[idx, 'סטטוס'] = "מאושר ✅"; save_db(st.session_state.shifts_db, S_FILE); st.rerun()
             if c2.button("❌ דחה", key=f"no_{idx}"):
                 st.session_state.shifts_db.at[idx, 'סטטוס'] = "מבוטל ❌"; save_db(st.session_state.shifts_db, S_FILE); st.rerun()
@@ -148,4 +148,5 @@ else:
         if row['סטטוס'] == "ממתין" and c2.button("🗑️", key=f"del_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
+
 
