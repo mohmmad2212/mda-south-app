@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # 1. הגדרות דף
-st.set_page_config(page_title='מערכת שיבוץ אשכול חורה מיתר לקיה', layout='wide', page_icon='🚑')
+st.set_page_config(page_title='מערכת שיבוץ אשכול', layout='wide', page_icon='🚑')
 
 # 2. ניהול קבצים
-W_FILE, S_FILE = "workers_v13.csv", "shifts_v13.csv"
+W_FILE, S_FILE = "workers_v14.csv", "shifts_v14.csv"
 def load_db(file, cols): return pd.read_csv(file) if os.path.exists(file) else pd.DataFrame(columns=cols)
 def save_db(df, file): df.to_csv(file, index=False, encoding='utf-8-sig')
 
@@ -24,35 +24,49 @@ def get_week_days():
     start_point = today - timedelta(days=(today.weekday() + 1) % 7)
     return [f"{days_names[(start_point + timedelta(days=i)).weekday()]} - {(start_point + timedelta(days=i)).strftime('%d/%m/%Y')}" for i in range(7)]
 
-# 4. עיצוב משופר (כיתוב לבן בדף הכניסה)
+# 4. עיצוב מתקדם (קופסה שחורה וכיתוב לבן)
 is_logged_in = 'auth' in st.session_state and st.session_state.auth is not None
 bg_color = "#f4f7f9" if is_logged_in else "#1a3a6d"
-label_color = "#1a3a6d" if is_logged_in else "#ffffff" # לבן בחוץ, כחול בפנים
+label_color = "#1a3a6d" if is_logged_in else "#ffffff"
 
 st.markdown(f"""
     <style>
     .stApp {{ background-color: {bg_color}; }}
-    /* עיצוב כותרות וטקסטים שיהיו לבנים בדף הכניסה */
+    
+    /* טקסט לבן בדף הכניסה */
     .stMarkdown p, label, .stRadio label, div[data-testid="stMarkdownContainer"] p {{
         color: {label_color} !important;
         font-weight: bold !important;
-        font-size: 1.1rem;
     }}
-    .main-header {{ background-color: #ffffff; padding: 15px; border-radius: 15px; border-bottom: 6px solid #d32f2f; text-align: center; margin-bottom: 25px; }}
-    .main-header h1 {{ color: #1a3a6d !important; }}
+
+    /* הצד השחור של הכותרת */
+    .main-header {{ 
+        background-color: #000000; 
+        padding: 20px; 
+        border-radius: 15px; 
+        border-bottom: 6px solid #d32f2f; 
+        text-align: center; 
+        margin-bottom: 25px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }}
+    .main-header h1 {{ 
+        color: #ffffff !important; 
+        font-size: 1.8rem;
+        margin: 0;
+    }}
+
     div[data-testid="stForm"] {{ background-color: #ffffff; padding: 25px; border-radius: 15px; border: 1px solid #ddd; }}
-    /* כפתור כניסה */
-    .stButton>button {{ background-color: #d32f2f !important; color: white !important; font-weight: bold; }}
+    .stButton>button {{ background-color: #d32f2f !important; color: white !important; font-weight: bold; border-radius: 10px; }}
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header"><h1>🚑 מערכת שיבוץ - מד"א דרום</h1></div>', unsafe_allow_html=True)
+# العنوان الجديد بالصندوق الأسود
+st.markdown('<div class="main-header"><h1>🚑 מערכת שיבוץ אשכול חורה מיתר לקיה</h1></div>', unsafe_allow_html=True)
 
-# --- דף כניסה ---
+# --- دף כניסה ---
 if not is_logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # כאן הטקסט יהיה לבן בגלל ה-CSS למעלה
         mode = st.radio("בחר סוג כניסה:", ["עובד", "מנהל"], horizontal=True)
         with st.form("login_form"):
             uid = st.text_input("תעודת זהות")
@@ -72,8 +86,7 @@ elif st.session_state.auth == "admin":
     t1, t2, t3 = st.tabs(["👥 ניהול עובדים", "📥 בקשות", "📊 איפוס ודוחות"])
 
     with t1:
-        st.subheader("הוספת/מחיקת עובדים")
-        # תצוגת עובדים
+        st.subheader("ניהול עובדים")
         if not st.session_state.workers_db.empty:
             for idx, row in st.session_state.workers_db.iterrows():
                 cols = st.columns([3, 2, 1])
@@ -93,10 +106,10 @@ elif st.session_state.auth == "admin":
                     save_db(st.session_state.workers_db, W_FILE); st.rerun()
 
     with t3:
-        st.subheader("ניהול נתונים")
-        if st.button("🚨 איפוס כל המשמרות (שבוע חדש) 🚨"):
+        st.subheader("איפוס מערכת")
+        if st.button("🚨 למחוק את כל המשמרות ולהתחיל שבוע חדש 🚨"):
             st.session_state.shifts_db = pd.DataFrame(columns=["תז", "שם_ותפקיד", "תחנה", "תאריך", "משמרת", "צבע", "סטטוס"])
-            save_db(st.session_state.shifts_db, S_FILE); st.success("המערכת אופסה!"); st.rerun()
+            save_db(st.session_state.shifts_db, S_FILE); st.success("כל המשמרות נמחקו בהצלחה!"); st.rerun()
         st.dataframe(st.session_state.shifts_db)
 
     with t2:
@@ -130,4 +143,3 @@ else:
         if row['סטטוס'] == "ממתין" and col_d.button("🗑️", key=f"ds_{idx}"):
             st.session_state.shifts_db = st.session_state.shifts_db.drop(idx)
             save_db(st.session_state.shifts_db, S_FILE); st.rerun()
-
